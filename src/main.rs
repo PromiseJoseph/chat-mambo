@@ -1,11 +1,11 @@
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc;
+use tokio::sync::broadcast;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let chat_mambo_addr: [SocketAddr; 2] = [
         SocketAddr::from(([127, 0, 0, 1], 8080)),
         SocketAddr::from(([127, 0, 0, 1], 8081)),
@@ -13,54 +13,66 @@ async fn main() {
 
     println!("Starting ChatMambo server ");
 
-    let listener = bind_addresses(&chat_mambo_addr).await;
+    let listener = bind_addresses(&chat_mambo_addr).await?;
+
     println!("Server listening on: {:?}", listener.local_addr().unwrap());
 
-    loop {
-        let (sender, mut receiver): (mpsc::Sender<String>, mpsc::Receiver<String>) =
-            mpsc::channel::<String>(5);
+    let (sender, _): (broadcast::Sender<String>, broadcast::Receiver<String>) =
+        broadcast::channel::<String>(5);
 
-        let (stream, _) = listener
+    loop {
+        let (stream, peer_addr) = listener
             .accept()
             .await
             .expect("Failed to accept connection");
-        let (mut reader, mut writer) = stream.into_split();
-        tokio::spawn(async move { handle_connection(reader, writer, sender, receiver).await });
+
+        let receiver = sender.subscribe();
+        let sender = sender.clone();
+
+        let (reader, writer) = stream.into_split();
+
+        tokio::spawn(async move {
+            handle_connection(reader, writer, sender, receiver, &peer_addr).await
+        });
     }
+    Ok(())
 }
 
 async fn handle_connection(
     mut reader: OwnedReadHalf,
     mut writer: OwnedWriteHalf,
-    sender: mpsc::Sender<String>,
-    mut receiver: mpsc::Receiver<String>,
+    sender: broadcast::Sender<String>,
+    mut receiver: broadcast::Receiver<String>,
+    peer_addr: &SocketAddr,
 ) {
     let mut buffer = [0; 1024];
 
     loop {
+        println!("Waiting for messages: {}", peer_addr); //for testing purposes, to be removed 
         tokio::select! {
                message = receiver.recv() => {
+                 println!("{} received from broadcast", peer_addr);
                    match message {
-                   Some(message) => {
+                   Ok(message) => {
                        println!("Received message from channel: {}", message);
                        if writer.write_all(message.as_bytes()).await.is_ok() {
-                           println!("Sent message to client {}", writer.peer_addr().unwrap());
+                           println!("Sent message to client {}", peer_addr);
                        } else {
-                           eprintln!("Failed to send message to client {}", writer.peer_addr().unwrap());
+                           eprintln!("Failed to send message to client {}", peer_addr);
                        }
                    }
-                   None => {
+                   Err(_) => {
                        eprintln!("Channel closed, no more messages to receive");
                        break;
-                   }
+                     }
 
+                  }
                }
-           }
 
                result = reader.read(&mut buffer) => {
                    match result {
                    Ok(0) =>{
-                       println!("Client disconnected: {:?}", reader.peer_addr().unwrap());
+                       println!("Client disconnected: {:?}", peer_addr);
                        break;
                    }
 
@@ -71,33 +83,8 @@ async fn handle_connection(
                        let message_str = String::from_utf8_lossy(&buffer[..bytes]);
                        println!("Received message: \"{}\"", message_str);
 
-                       sender.send(message_str.to_string()).await.unwrap();
+                       sender.send(message_str.to_string()).unwrap();
 
-
-
-                       //  let  processor_code  = move || {
-                       //     println!("Starting processor code");
-                       //     loop{
-                       //         println!("Attempting to receive message from channel");
-                       //         if received_message.is_ok() {
-                       //             println!("Received message from channel: {}", received_message.unwrap());
-                       //             break;
-                       //         } else {
-                       //             println!("No message received from channel, waiting...");
-                       //         }
-                       //     }
-                       //   };
-                       //   tokio::spawn(async move {
-                       //     processor_code();
-                       //   });
-                       // writer.write_all(message_str.as_bytes()).await.unwrap();
-                       // println!("Sent response to client {}", writer.peer_addr().unwrap());
-
-                       // if writer.shutdown().await.is_ok() {
-                       //     println!("Connection closed with client {}", writer.peer_addr().unwrap());
-                       // } else {
-                       //     println!("Failed to close connection with client {}", writer.peer_addr().unwrap());
-                       // }
                    }
 
                    Err(e) => {
@@ -110,12 +97,15 @@ async fn handle_connection(
     }
 }
 
-async fn bind_addresses(addresses: &[SocketAddr]) -> TcpListener {
+async fn bind_addresses(addresses: &[SocketAddr]) -> Result<TcpListener, std::io::Error> {
     for address in addresses {
         match TcpListener::bind(address).await {
-            Ok(listener) => return listener,
+            Ok(listener) => return Ok(listener),
             Err(e) => eprintln!("Failed to bind to {}: {}", address, e),
         }
     }
-    panic!("Failed to bind to any ofthe provided addresses");
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AddrNotAvailable,
+        "Failed to bind to any of the provided addresses",
+    ))
 }
