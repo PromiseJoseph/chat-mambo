@@ -1,3 +1,4 @@
+use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -51,14 +52,13 @@ async fn handle_connection(
         println!("Waiting for messages: {}", peer_addr); //for testing purposes, to be removed 
         tokio::select! {
                message = receiver.recv() => {
-                 println!("{} received from broadcast", peer_addr);
                    match message {
                    Ok(message) => {
-                       println!("Received message from channel: {}", message);
+                       println!("{peer_addr} received broadcast: {message}");
                        if writer.write_all(message.as_bytes()).await.is_ok() {
-                           println!("Sent message to client {}", peer_addr);
+                           println!("Sent message to client {peer_addr}: {message}");
                        } else {
-                           eprintln!("Failed to send message to client {}", peer_addr);
+                           eprintln!("Failed to send message to client {peer_addr}");
                        }
                    }
                    Err(_) => {
@@ -78,10 +78,8 @@ async fn handle_connection(
 
                    Ok(bytes) => {
 
-                       print!("Received {} bytes from client \n", bytes);
-
                        let message_str = String::from_utf8_lossy(&buffer[..bytes]);
-                       println!("Received message: \"{}\"", message_str);
+                       println!("Received {bytes} bytes from client {peer_addr}: \"{message_str}\"");
 
                        sender.send(message_str.to_string()).unwrap();
 
@@ -104,8 +102,8 @@ async fn bind_addresses(addresses: &[SocketAddr]) -> Result<TcpListener, std::io
             Err(e) => eprintln!("Failed to bind to {}: {}", address, e),
         }
     }
-    Err(std::io::Error::new(
-        std::io::ErrorKind::AddrNotAvailable,
+    Err(Error::new(
+        ErrorKind::AddrNotAvailable,
         "Failed to bind to any of the provided addresses",
     ))
 }
