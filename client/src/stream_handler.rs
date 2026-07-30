@@ -16,9 +16,8 @@ pub async fn handle_stream(stream: TcpStream) {
 }
 
 async fn send_message(mut writer: OwnedWriteHalf) {
+    println!("Enter message to send to server (or type 'exit' to quit):");
     loop {
-        println!("Enter message to send to server (or type 'exit' to quit):");
-
         let mut message = String::new();
 
         io::stdin()
@@ -53,7 +52,7 @@ async fn receive_message(mut reader: OwnedReadHalf) {
 
             Ok(bytes_read) => {
                 let response = String::from_utf8_lossy(&buffer[..bytes_read]);
-                println!("Received: {response}");
+                println!("New message : \n {response}");
             }
 
             Err(e) => {
