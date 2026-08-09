@@ -44,7 +44,7 @@ pub async fn handle_stream(
                    match result {
                    Ok(0) =>{
                        println!("Client {peer_addr} disconnected");
-                       let disconnect_message = format!("{} has left the chat.", username);
+                       let disconnect_message = format!("[Alert]{} left the chat!", username);
                        if let Err(e) = sender.send(Message(Some(client_id.clone()), disconnect_message)) {
                             eprintln!("Failed to broadcast disconnection message: {}", e);
                         }
