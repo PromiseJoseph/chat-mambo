@@ -24,7 +24,10 @@ pub async fn request_client_username(
     }
     let username = String::from_utf8_lossy(&buffer[..bytes]).trim().to_string();
 
-    let _ = sender.send(Message(None, format!("{} has joined the chat.", username)));
+    let _ = sender.send(Message(
+        None,
+        format!("[Alert] {} joined the chat!", username),
+    ));
 
     Ok(username)
 }
