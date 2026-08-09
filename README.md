@@ -24,7 +24,7 @@ If you do not already have Rust installed, install it with:
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
-
+or visit https://rust-lang.org/tools/install
 ## Setup
 
 1. Open a terminal in the repository root.
