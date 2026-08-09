@@ -22,3 +22,22 @@ pub async fn bind_addresses(
         "Failed to bind to any of the provided addresses",
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::SocketAddr;
+
+    #[tokio::test]
+    async fn test_bind_addresses() {
+        let default_addresses: [SocketAddr; 2] = [
+            SocketAddr::from(([127, 0, 0, 1], 4000)),
+            SocketAddr::from(([127, 0, 0, 1], 4040)),
+        ];
+
+        // Test binding to a custom address that is likely available
+        let custom_address = Some("127.0.0.1:4082");
+        let listener = bind_addresses(custom_address, &default_addresses).await;
+        assert!(listener.is_ok());
+    }
+}
