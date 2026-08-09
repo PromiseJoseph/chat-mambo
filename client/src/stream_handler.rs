@@ -28,6 +28,9 @@ async fn send_message(mut writer: OwnedWriteHalf) {
 
         if message.eq_ignore_ascii_case("exit") {
             println!("Exiting...");
+            if let Err(e) = writer.shutdown().await {
+                eprintln!("Failed to shutdown writer: {}", e);
+            }
             break;
         }
 

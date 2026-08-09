@@ -2,7 +2,11 @@ use std::net::SocketAddr;
 use tokio::sync::broadcast;
 mod listener;
 mod stream;
+mod types;
+use types::Message;
+mod connection;
 mod username_handler;
+use connection::handle_connection;
 #[tokio::main]
 
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,27 +19,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arg = std::env::args().nth(1);
     let custom_addr = arg.as_deref();
     let listener = listener::bind_addresses(custom_addr, &chat_mambo_addr).await?;
-
     println!("Server listening on: {:?}", listener.local_addr().unwrap());
 
-    let (sender, _): (broadcast::Sender<String>, broadcast::Receiver<String>) =
-        broadcast::channel::<String>(5);
+    let (sender, _): (broadcast::Sender<Message>, broadcast::Receiver<Message>) =
+        broadcast::channel::<Message>(5);
 
     loop {
-        let (mut stream, peer_addr) = listener
+        let (stream, peer_addr) = listener
             .accept()
             .await
             .expect("Failed to accept connection");
 
-        let receiver = sender.subscribe();
         let sender = sender.clone();
-        let username = username_handler::request_client_username(&mut stream).await?;
-
-        let (reader, writer) = stream.into_split();
-
         tokio::spawn(async move {
-            stream::handle_stream(reader, writer, sender, receiver, peer_addr, username).await
+            if let Err(e) = handle_connection(stream, sender, peer_addr).await {
+                eprintln!("Connection {peer_addr} failed: {e}");
+            }
         });
     }
-    Ok(())
 }
