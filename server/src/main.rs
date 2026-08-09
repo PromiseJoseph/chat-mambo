@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Server listening on: {:?}", listener.local_addr().unwrap());
 
     let (sender, _): (broadcast::Sender<Message>, broadcast::Receiver<Message>) =
-        broadcast::channel::<Message>(5);
+        broadcast::channel::<Message>(20);
 
     loop {
         let (stream, peer_addr) = listener
