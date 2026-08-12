@@ -8,6 +8,5 @@ services:
     environment:
       - RUST_LOG=info
     ports:
-      - "8000:8000"
-      - "8080:8080"
-    command: ["./target/release/ChatMambo", "${SERVER_ADDRESS:-0.0.0.0:8000}"]
+      - "${SERVER_PORT:-8000}:${SERVER_PORT:-8000}"
+    command: ["./target/release/ChatMambo", "0.0.0.0:${SERVER_PORT:-8000}"]
