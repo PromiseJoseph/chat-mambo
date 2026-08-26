@@ -2,7 +2,7 @@ use tokio::net::TcpStream;
 mod stream_handler;
 use stream_handler::handle_stream;
 
-const SERVER_ADDR: &str = "127.0.0.1:7778"; // Address of the EchoMambo-client server
+const SERVER_ADDR: &str = "127.0.0.1:8080"; // Address of the EchoMambo-client server
 
 #[tokio::main]
 async fn main() {
